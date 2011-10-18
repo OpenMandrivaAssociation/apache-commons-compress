@@ -12,12 +12,12 @@ Source0:          http://www.apache.org/dist/commons/%{base_name}/source/%{short
 BuildArch:        noarch
 
 BuildRequires:    java-devel >= 0:1.6.0
-BuildRequires:    jpackage-utils
+BuildRequires:    jpackage-utils >= 0:1.7.5
 BuildRequires:    apache-commons-parent
 Requires:         java >= 0:1.6.0
-Requires:         jpackage-utils
-Requires(post):   jpackage-utils
-Requires(postun): jpackage-utils
+Requires:         jpackage-utils >= 0:1.7.5
+Requires(post):   jpackage-utils >= 0:1.7.5
+Requires(postun): jpackage-utils >= 0:1.7.5
 
 
 # Upstream name change
@@ -35,7 +35,7 @@ Ant -> Avalon-Excalibur -> Commons-IO -> Commons-Compress.
 %package javadoc
 Summary:        Javadocs for %{name}
 Group:          Development/Java
-Requires:       jpackage-utils
+Requires:       jpackage-utils >= 0:1.7.5
 
 # Upstream name change
 Provides:         jakarta-%{short_name}-javadoc = %{version}-%{release}
