@@ -3,7 +3,7 @@
 
 Name:             apache-%{short_name}
 Version:          1.1
-Release:          2
+Release:          1
 Summary:          Java API for working with tar, zip and bzip2 files
 Group:            Development/Java
 License:          ASL 2.0
@@ -12,12 +12,12 @@ Source0:          http://www.apache.org/dist/commons/%{base_name}/source/%{short
 BuildArch:        noarch
 
 BuildRequires:    java-devel >= 0:1.6.0
-BuildRequires:    jpackage-utils >= 0:1.7.5
+BuildRequires:    jpackage-utils
 BuildRequires:    apache-commons-parent
 Requires:         java >= 0:1.6.0
-Requires:         jpackage-utils >= 0:1.7.5
-Requires(post):   jpackage-utils >= 0:1.7.5
-Requires(postun): jpackage-utils >= 0:1.7.5
+Requires:         jpackage-utils
+Requires(post):   jpackage-utils
+Requires(postun): jpackage-utils
 
 
 # Upstream name change
@@ -35,7 +35,7 @@ Ant -> Avalon-Excalibur -> Commons-IO -> Commons-Compress.
 %package javadoc
 Summary:        Javadocs for %{name}
 Group:          Development/Java
-Requires:       jpackage-utils >= 0:1.7.5
+Requires:       jpackage-utils
 
 # Upstream name change
 Provides:         jakarta-%{short_name}-javadoc = %{version}-%{release}
