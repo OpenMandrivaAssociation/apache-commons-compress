@@ -3,7 +3,7 @@
 
 Name:             apache-%{short_name}
 Version:          1.1
-Release:          1
+Release:          3
 Summary:          Java API for working with tar, zip and bzip2 files
 Group:            Development/Java
 License:          ASL 2.0
