@@ -3,8 +3,8 @@
 %global short_name      commons-%{base_name}
 
 Name:           apache-%{short_name}
-Version:        1.6
-Release:        1.1%{?dist}
+Version:        1.9
+Release:        1
 Summary:        Java API for working with compressed files and archivers
 
 License:        ASL 2.0
@@ -20,9 +20,6 @@ BuildRequires:  xz-java
 
 Provides:       jakarta-%{short_name} = %{version}-%{release}
 Obsoletes:      jakarta-%{short_name} < 1.0-2
-
-# Aparently java7 issue, replaces path with full path name
-Patch0:         %{name}-check.patch
 
 %description
 The Apache Commons Compress library defines an API for working with
@@ -40,7 +37,6 @@ This package provides %{summary}.
 
 %prep
 %setup -q -n %{short_name}-%{version}-src
-%patch0 -p1
 
 %build
 %mvn_file  : %{short_name} %{name}
