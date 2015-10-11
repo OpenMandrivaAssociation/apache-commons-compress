@@ -3,8 +3,8 @@
 %global short_name      commons-%{base_name}
 
 Name:           apache-%{short_name}
-Version:        1.9
-Release:        5
+Version:        1.10
+Release:        1
 Summary:        Java API for working with compressed files and archivers
 
 License:        ASL 2.0
