@@ -4,7 +4,7 @@
 
 Name:           apache-%{short_name}
 Version:        1.10
-Release:        1
+Release:        2
 Summary:        Java API for working with compressed files and archivers
 
 License:        ASL 2.0
