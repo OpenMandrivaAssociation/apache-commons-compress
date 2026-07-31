@@ -3,8 +3,8 @@
 %global short_name      commons-%{base_name}
 
 Name:           apache-%{short_name}
-Version:        1.10
-Release:        3
+Version:        1.28.0
+Release:        1
 Summary:        Java API for working with compressed files and archivers
 
 License:        ASL 2.0
@@ -36,7 +36,7 @@ Obsoletes:      jakarta-%{short_name}-javadoc < 1.0-2
 This package provides %{summary}.
 
 %prep
-%setup -q -n %{short_name}-%{version}-src
+%setup -q -n commons-compress-1.28.0-src
 # FIXME: test fails for unknown reason
 find -name X5455_ExtendedTimestampTest.java -delete
 
