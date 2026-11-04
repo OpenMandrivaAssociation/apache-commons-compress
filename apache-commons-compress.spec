@@ -1,131 +1,183 @@
-%{?_javapackages_macros:%_javapackages_macros}
-%global base_name       compress
-%global short_name      commons-%{base_name}
+Name:		apache-commons-compress
+Version:	1.28.0
+Release:	1
+Summary:	Library for tar, zip, and other archive formats
+Group:		Development/Java
+License:	ASL 2.0
+URL:		https://commons.apache.org/proper/commons-compress/
+Source0:	https://archive.apache.org/dist/commons/compress/source/commons-compress-%{version}-src.tar.gz
 
-Name:           apache-%{short_name}
-Version:        1.28.0
-Release:        1
-Summary:        Java API for working with compressed files and archivers
-
-License:        ASL 2.0
-URL:            https://commons.apache.org/%{base_name}/
-Source0:        http://archive.apache.org/dist/commons/%{base_name}/source/%{short_name}-%{version}-src.tar.gz
-BuildArch:      noarch
-
-BuildRequires:  maven-local
-BuildRequires:  javapackages-tools >= 0.10.0
-BuildRequires:  apache-commons-parent
-BuildRequires:  maven-surefire-provider-junit
-BuildRequires:  xz-java
-
-Provides:       jakarta-%{short_name} = %{version}-%{release}
-Obsoletes:      jakarta-%{short_name} < 1.0-2
+BuildArch:	noarch
+BuildRequires:	mvn(org.apache.commons:commons-parent:pom:)
+BuildRequires:	mvn(commons-io:commons-io)
+BuildRequires:	mvn(org.apache.commons:commons-lang3)
+BuildRequires:	mvn(commons-codec:commons-codec)
+BuildRequires:	mvn(org.tukaani:xz)
+BuildRequires:	python
+BuildSystem:	maven
+BuildOption(install):	--file-name commons-compress --link %{name} --alias commons-compress:commons-compress
 
 %description
-The Apache Commons Compress library defines an API for working with
-ar, cpio, Unix dump, tar, zip, gzip, XZ, Pack200 and bzip2 files.
-
-
-%package javadoc
-Summary:        API documentation for %{name}
-
-Provides:       jakarta-%{short_name}-javadoc = %{version}-%{release}
-Obsoletes:      jakarta-%{short_name}-javadoc < 1.0-2
-
-%description javadoc
-This package provides %{summary}.
+Apache Commons Compress reads and writes tar, zip, 7z, and other archive
+formats. Zstandard and Brotli are left out: zstd-jni is a prebuilt native
+library, and Pack200 needs a bundled ASM that this package does not ship.
+XZ and LZMA come from the system xz-java package.
 
 %prep
-%setup -q -n commons-compress-1.28.0-src
-# FIXME: test fails for unknown reason
-find -name X5455_ExtendedTimestampTest.java -delete
+%setup -q -n commons-compress-%{version}-src
+python - <<'PY'
+import re
+import shutil
+from pathlib import Path
 
-%build
-%mvn_file  : %{short_name} %{name}
-%mvn_alias : commons:
-%mvn_build
+pom = Path("pom.xml")
+text = pom.read_text()
+patterns = [
+    r"\s*<dependency>\s*<groupId>com\.github\.luben</groupId>\s*<artifactId>zstd-jni</artifactId>.*?</dependency>",
+    r"\s*<dependency>\s*<groupId>org\.brotli</groupId>\s*<artifactId>dec</artifactId>.*?</dependency>",
+    r"\s*<!-- Pack200 -->\s*<dependency>\s*<groupId>org\.ow2\.asm</groupId>\s*<artifactId>asm</artifactId>.*?</dependency>",
+]
+for pattern in patterns:
+    text, count = re.subn(pattern, "\n", text, count=1, flags=re.S)
+    if count != 1:
+        raise SystemExit(f"pom edit missed {pattern}")
+pom.write_text(text)
 
-%install
-%mvn_install
+for relative in (
+    "src/main/java/org/apache/commons/compress/compressors/brotli",
+    "src/main/java/org/apache/commons/compress/compressors/zstandard",
+    "src/main/java/org/apache/commons/compress/compressors/pack200",
+    "src/main/java/org/apache/commons/compress/harmony",
+    "src/main/java/org/apache/commons/compress/java",
+):
+    shutil.rmtree(relative)
+
+def sub(path, old, new):
+    file = Path(path)
+    text = file.read_text()
+    if old not in text:
+        raise SystemExit(f"missing snippet in {path}: {old[:80]!r}")
+    file.write_text(text.replace(old, new, 1))
+
+factory = "src/main/java/org/apache/commons/compress/compressors/CompressorStreamFactory.java"
+for line in (
+    "import org.apache.commons.compress.compressors.brotli.BrotliCompressorInputStream;\n",
+    "import org.apache.commons.compress.compressors.brotli.BrotliUtils;\n",
+    "import org.apache.commons.compress.compressors.pack200.Pack200CompressorInputStream;\n",
+    "import org.apache.commons.compress.compressors.pack200.Pack200CompressorOutputStream;\n",
+    "import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;\n",
+    "import org.apache.commons.compress.compressors.zstandard.ZstdCompressorOutputStream;\n",
+    "import org.apache.commons.compress.compressors.zstandard.ZstdUtils;\n",
+):
+    sub(factory, line, "")
+sub(
+    factory,
+    """        if (compressorNames.contains(PACK200) && Pack200CompressorInputStream.matches(signature, signatureLength)) {
+            return PACK200;
+        }
+""",
+    "",
+)
+sub(
+    factory,
+    """        if (compressorNames.contains(ZSTANDARD) && ZstdUtils.matches(signature, signatureLength)) {
+            return ZSTANDARD;
+        }
+""",
+    "",
+)
+sub(
+    factory,
+    """            if (BROTLI.equalsIgnoreCase(name)) {
+                if (!BrotliUtils.isBrotliCompressionAvailable()) {
+                    throw new CompressorException("Brotli compression is not available." + YOU_NEED_BROTLI_DEC);
+                }
+                return new BrotliCompressorInputStream(in);
+            }
+""",
+    """            if (BROTLI.equalsIgnoreCase(name)) {
+                throw new CompressorException("Brotli compression is not available." + YOU_NEED_BROTLI_DEC);
+            }
+""",
+)
+sub(
+    factory,
+    """            if (ZSTANDARD.equalsIgnoreCase(name)) {
+                if (!ZstdUtils.isZstdCompressionAvailable()) {
+                    throw new CompressorException("Zstandard compression is not available." + YOU_NEED_ZSTD_JNI);
+                }
+                return new ZstdCompressorInputStream(in);
+            }
+""",
+    """            if (ZSTANDARD.equalsIgnoreCase(name)) {
+                throw new CompressorException("Zstandard compression is not available." + YOU_NEED_ZSTD_JNI);
+            }
+""",
+)
+sub(
+    factory,
+    """            if (PACK200.equalsIgnoreCase(name)) {
+                return new Pack200CompressorInputStream(in);
+            }
+""",
+    """            if (PACK200.equalsIgnoreCase(name)) {
+                throw new CompressorException("Pack200 compression is not available.");
+            }
+""",
+)
+sub(
+    factory,
+    """            if (PACK200.equalsIgnoreCase(name)) {
+                return new Pack200CompressorOutputStream(out);
+            }
+""",
+    """            if (PACK200.equalsIgnoreCase(name)) {
+                throw new CompressorException("Pack200 compression is not available.");
+            }
+""",
+)
+sub(
+    factory,
+    """            if (ZSTANDARD.equalsIgnoreCase(name)) {
+                return new ZstdCompressorOutputStream(out);
+            }
+""",
+    """            if (ZSTANDARD.equalsIgnoreCase(name)) {
+                throw new CompressorException("Zstandard compression is not available." + YOU_NEED_ZSTD_JNI);
+            }
+""",
+)
+
+zip_in = "src/main/java/org/apache/commons/compress/archivers/zip/ZipArchiveInputStream.java"
+sub(zip_in, "import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;\n", "")
+sub(
+    zip_in,
+    """    protected InputStream createZstdInputStream(final InputStream in) throws IOException {
+        return new ZstdCompressorInputStream(in);
+    }
+""",
+    """    protected InputStream createZstdInputStream(final InputStream in) throws IOException {
+        if (in == null) {
+            throw new IOException("Zstandard compression is not available.");
+        }
+        throw new IOException("Zstandard compression is not available.");
+    }
+""",
+)
+
+zip_file = "src/main/java/org/apache/commons/compress/archivers/zip/ZipFile.java"
+sub(zip_file, "import org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream;\n", "")
+sub(
+    zip_file,
+    """        return zstdInputStreamFactory != null ? zstdInputStreamFactory.apply(in) : new ZstdCompressorInputStream(in);
+""",
+    """        if (zstdInputStreamFactory != null) {
+            return zstdInputStreamFactory.apply(in);
+        }
+        throw new IOException("Zstandard compression is not available.");
+""",
+)
+PY
 
 %files -f .mfiles
-%doc LICENSE.txt NOTICE.txt
-
-%files javadoc -f .mfiles-javadoc
-%doc LICENSE.txt NOTICE.txt
-
-
-%changelog
-* Tue Oct 29 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.6-1
-- Update to upstream version 1.6
-
-* Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.5-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
-
-* Thu Mar 14 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.5-1
-- Update to upstream version 1.5
-
-* Wed Feb 13 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.4.1-6
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
-
-* Wed Feb 06 2013 Java SIG <java-devel@lists.fedoraproject.org> - 1.4.1-5
-- Update for https://fedoraproject.org/wiki/Fedora_19_Maven_Rebuild
-- Replace maven BuildRequires with maven-local
-
-* Wed Jan  9 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.4.1-4
-- Bump release tag
-
-* Tue Jan  8 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.4.1-3
-- Build with xmvn
-- Update to current packaging guidelines
-
-* Wed Jul 18 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.4.1-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
-
-* Thu May 24 2012 Sandro Mathys <red at fedoraproject.org> - 1.4.1-1
-- Updated to 1.4.1
-- Fixes CVE-2012-2098 Low: Denial of Service
-
-* Fri Apr 27 2012 Sandro Mathys <red at fedoraproject.org> - 1.4-1
-- Updated to 1.4
-
-* Thu Jan 12 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.3-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
-
-* Tue Nov 01 2011 Sandro Mathys <red at fedoraproject.org> - 1.3-1
-- Updated to 1.3
-
-* Thu Aug 04 2011 Sandro Mathys <red at fedoraproject.org> - 1.2-2
-- Fixing mistake where different versions of the spec file got mixed up
-
-* Thu Aug 04 2011 Sandro Mathys <red at fedoraproject.org> - 1.2-1
-- Updated to 1.2
-
-* Sat Apr 16 2011 Chris Spike <spike@fedoraproject.org> 1.1-1
-- Updated to 1.1
-- Adapted to current java packaging guidelines
-
-* Mon Feb 07 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0-9
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
-
-* Sun Jul 11 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-8
-- Fixed the Maven depmap line by replacing org.apache.maven by org.apache.commons
-
-* Mon May 31 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-7
-- Fixed regression with missing Provides/Obsoletes for javadocs
-- Fixed changelog format
-
-* Sun May 23 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-6
-- Fixed Maven depmap to use commons-compress
-
-* Thu May 13 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-5
-- Added missing Provides/Obsoletes for javadocs 
-
-* Mon May 10 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-4
-- Cleared some problems after the review
-
-* Thu May 06 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-3
-- Now using maven2 (mvn-jpp) instead of directly calling javac & co
-
-* Tue May 04 2010 Sandro Mathys <red at fedoraproject.org> - 1.0-2
-- Renamed from jakarta-commons-compress
+%doc LICENSE.txt NOTICE.txt RELEASE-NOTES.txt
