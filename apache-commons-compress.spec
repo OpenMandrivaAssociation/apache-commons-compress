@@ -14,6 +14,9 @@ BuildRequires:	mvn(org.apache.commons:commons-lang3)
 BuildRequires:	mvn(commons-codec:commons-codec)
 BuildRequires:	mvn(org.tukaani:xz)
 BuildRequires:	python
+# Literal, so the first rpmbuild -bs records them before sysjar is installed.
+BuildRequires:	maven
+BuildRequires:	java-current-devel
 BuildSystem:	maven
 BuildOption(install):	--file-name commons-compress --link %{name} --alias commons-compress:commons-compress
 
